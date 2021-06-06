@@ -5,15 +5,18 @@ const core_server_util = require("./core_server_util.js");
 
 let io = core_server_util.get_io(); // automatically determine dev mode or not
 
-var Engine = Matter.Engine;
-var Runner = Matter.Runner;
-var Bodies = Matter.Bodies;
-var Composite = Matter.Composite;
+var Engine = Matter.Engine,
+    Runner = Matter.Runner,
+    Bodies = Matter.Bodies,
+    Composite = Matter.Composite,
+    Constraint = Matter.Constraint,
+    Events = Matter.Events;
 
 let players = {};
 let playerVitals = {};
 let usernames = {};
 let modules = []; // lets readd modules wcgw
+let mouses = {};
 
 tick();
 
@@ -104,6 +107,10 @@ io.sockets.on('connection', (socket) => {
 
 	Composite.add(engine.world, [boxBody]);
 	players[socket.id] = boxBody;
+    mouses[socket.id] = Bodies.circle(0, 0, 1, {
+        isSensor: true
+    });
+    Composite.add(engine.world, mouses[socket.id]);
 	
 	socket.on('join', (username) => {
 		usernames[socket.id] = username;
@@ -124,7 +131,7 @@ io.sockets.on('connection', (socket) => {
 		io.emit('message', text, username);
 	});
 
-	socket.on('input', (keys) => {
+	socket.on('input', (keys, mousePos) => {
 		if (keys.s) {
 			skey(socket);
 		}
@@ -137,11 +144,29 @@ io.sockets.on('connection', (socket) => {
 		if (keys.d) {
 			dkey(socket);
 		}
+        Matter.Body.setPosition(mouses[socket.id], { x: mousePos.x + players[socket.id].position.x, y: mousePos.y + players[socket.id].position.y })
 	});
 });
 
 var planets = {};
 var moduleVitals = [];
+
+Events.on(engine, 'collisionStart', (event) => {
+    var pairs = event.pairs;
+
+    for(var i = 0, j = pairs.length; i != j; ++i) {
+        var pair = pairs[i];
+        
+        for(let key of Object.keys(mouses)) {
+            if(pair.bodyA === mouses[key]) {
+                Matter.Body.setPosition(pair.bodyB, {x: pair.bodyA.position.x, y: pair.bodyA.position.y});
+            }
+            if(pair.bodyB === mouses[key]) {
+                Matter.Body.setPosition(pair.bodyA, {x: pair.bodyB.position.x, y: pair.bodyB.position.y});
+            }
+        }
+    }
+});
 
 function tick() {
 	const intervalId = setInterval(() => {
@@ -155,17 +180,21 @@ function tick() {
 				y: players[key].position.y,
 				rotation: players[key].angle,
 				velX: players[key].velocity.x,
-				velY: players[key].velocity.y
+				velY: players[key].velocity.y,
 			};
 		}
 
+        // module essentials creation
 		for(let i = 0;  i < modules.length; i++) {
 			moduleVitals[i] = {
 				x: modules[i].position.x,
 				y: modules[i].position.y,
 				rotation: modules[i].angle
 			};
-
+        }
+        
+        // module gravity
+		for(let i = 0;  i < modules.length; i++) {
 			var distance = Math.sqrt(
 				((moduleVitals[i].x - earthBody.position.x / SCALE) *
 					(moduleVitals[i].x - earthBody.position.x / SCALE)) +
@@ -253,9 +282,7 @@ function tick() {
             
 			Matter.Body.applyForce(players[key], players[key].position, {x: force.x + force2.x, y: force.y + force2.y});
 
-			for(let key1 of Object.keys(playerVitals)){
-					io.to(key).emit('client-pos', playerVitals[key1], playerVitals[key], usernames);
-			}
+            io.to(key).emit('client-pos', playerVitals, playerVitals[key], usernames);
 
 			io.to(key).emit('planet-pos', planets);
 			io.to(key).emit('module-pos', moduleVitals);

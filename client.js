@@ -29,7 +29,7 @@ if(username == undefined || username == "" || username == " ") {
 	username = "Unnamed";
 }
 
-var socket = io("https://starkingdoms.tk:8443");
+var socket = io("localhost:8443");
 socket.emit("join", username);
 
 var players = {};
@@ -42,6 +42,7 @@ var player = {
 };
 
 var keys = {};
+var mousePos = {};
 var usernames = {};
 var planets = {};
 var modules = [];
@@ -179,7 +180,7 @@ function draw() {
 			ctx.restore();
 		}
 
-		socket.emit("input", keys);
+		socket.emit("input", keys, mousePos);
 	}, 1000/60);
 }
 
@@ -193,3 +194,9 @@ document.onkeydown = (e) => {
 document.onkeyup = (e) => {
 	keys[e.key] = false;
 };
+document.addEventListener('mousemove', (event) => {
+    mousePos = {
+        x: event.clientX - (canvas.width / 2),
+        y: event.clientY - (canvas.height / 2),
+    }
+});

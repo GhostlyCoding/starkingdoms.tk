@@ -19,6 +19,6 @@ exports.PORT = 8443;
 
 // DO NOT MODIFY THE LINES ABOVE
 // ONLY CHANGE THIS LINE!
-exports.DEVELOPMENT_MODE = false;
+exports.DEVELOPMENT_MODE = true;
 // False = starkingdoms.tk server settings
 // True = localhost server settings

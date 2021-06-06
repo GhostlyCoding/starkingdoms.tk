@@ -1,7 +1,6 @@
 --- client.js	2021-06-03 15:56:02.340011858 -0400
 +++ client.js.old	2021-06-03 15:56:24.306678628 -0400
-@@ -27,7 +27,7 @@
- if(username == undefined || username == "" || username == " ") {
+@@ -29,7 +29,7 @@
  	username = "Unnamed"
  }
 -var socket = io("https://starkingdoms.tk:8443")
