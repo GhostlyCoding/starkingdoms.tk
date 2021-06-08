@@ -17,6 +17,7 @@ let playerVitals = {};
 let usernames = {};
 let modules = []; // lets readd modules wcgw
 let mouses = {};
+let buttons = {};
 
 tick();
 
@@ -36,9 +37,11 @@ var earthBody = Bodies.circle(
 	earthPos.y,
 	1250,
 	{
-		friction: .0007
+        friction: .0007,
+        isStatic: true
 	}, 50
 );
+console.log(earthBody.mass)
 
 let moonDistance = 5000;
 var moonLocation = {
@@ -108,8 +111,10 @@ io.sockets.on('connection', (socket) => {
 	Composite.add(engine.world, [boxBody]);
 	players[socket.id] = boxBody;
     mouses[socket.id] = Bodies.circle(0, 0, 1, {
-        isSensor: true
+        isSensor: true,
+        density: .0001
     });
+    mouses[socket.id].constraint = null;
     Composite.add(engine.world, mouses[socket.id]);
 	
 	socket.on('join', (username) => {
@@ -131,7 +136,7 @@ io.sockets.on('connection', (socket) => {
 		io.emit('message', text, username);
 	});
 
-	socket.on('input', (keys, mousePos) => {
+	socket.on('input', (keys, mousePos, mouseButtons) => {
 		if (keys.s) {
 			skey(socket);
 		}
@@ -145,13 +150,14 @@ io.sockets.on('connection', (socket) => {
 			dkey(socket);
 		}
         Matter.Body.setPosition(mouses[socket.id], { x: mousePos.x + players[socket.id].position.x, y: mousePos.y + players[socket.id].position.y })
+        buttons[socket.id] = mouseButtons;
 	});
 });
 
 var planets = {};
 var moduleVitals = [];
 
-Events.on(engine, 'collisionStart', (event) => {
+Events.on(engine, 'collisionActive', (event) => {
     var pairs = event.pairs;
 
     for(var i = 0, j = pairs.length; i != j; ++i) {
@@ -159,10 +165,36 @@ Events.on(engine, 'collisionStart', (event) => {
         
         for(let key of Object.keys(mouses)) {
             if(pair.bodyA === mouses[key]) {
-                Matter.Body.setPosition(pair.bodyB, {x: pair.bodyA.position.x, y: pair.bodyA.position.y});
+                if(pair.bodyB != players[key]) {
+                    if(buttons[key] == 1) {
+                        if(mouses[key].constraint == null){
+                            console.log("constraint");
+                            mouses[key].constraint = Constraint.create({
+                                bodyA: mouses[key],
+                                bodyB: pair.bodyB,
+                                stiffness: .1
+                            });
+                            Matter.Body.setDensity(pair.bodyB, .00000001);
+                            Composite.add(engine.world, mouses[key].constraint);
+                        }
+                    }
+                }
             }
             if(pair.bodyB === mouses[key]) {
-                Matter.Body.setPosition(pair.bodyA, {x: pair.bodyB.position.x, y: pair.bodyB.position.y});
+                if(pair.bodyA != players[key] && pair.bodyA != earthBody) {
+                    if(buttons[key] == 1) {
+                        if(mouses[key].constraint == null){
+                            console.log("constraint");
+                            mouses[key].constraint = Constraint.create({
+                                bodyA: pair.bodyA,
+                                bodyB: mouses[key],
+                                stiffness: .1
+                            });
+                            Matter.Body.setDensity(pair.bodyA, .00000001);
+                            Composite.add(engine.world, mouses[key].constraint);
+                        }
+                    }
+                }
             }
         }
     }
@@ -182,6 +214,21 @@ function tick() {
 				velX: players[key].velocity.x,
 				velY: players[key].velocity.y,
 			};
+            if (buttons[key] == 0 && mouses[key].constraint != null) {
+                Matter.Body.setVelocity(mouses[key].constraint.bodyB, {x: 0, y: 0});
+                Matter.Body.setVelocity(mouses[key].constraint.bodyA, {x: 0, y: 0});
+                if(mouses[key].constraint.bodyB == mouses[key]) {
+                    Matter.Body.setDensity(mouses[key].constraint.bodyB, 0.001);
+                } else {
+                    Matter.Body.setDensity(mouses[key].constraint.bodyA, 0.001);
+                }
+                Composite.remove(engine.world, mouses[key].constraint);
+                mouses[key].constraint = null;
+            }
+            if (buttons[key] == 1 && mouses[key].constraint != null) {
+                Matter.Body.setVelocity(mouses[key].constraint.bodyB, {x: 0, y: 0});
+                Matter.Body.setVelocity(mouses[key].constraint.bodyA, {x: 0, y: 0});
+            }
 		}
 
         // module essentials creation
@@ -189,7 +236,8 @@ function tick() {
 			moduleVitals[i] = {
 				x: modules[i].position.x,
 				y: modules[i].position.y,
-				rotation: modules[i].angle
+				rotation: modules[i].angle,
+                velocity: modules[i].velocity
 			};
         }
         
@@ -208,7 +256,7 @@ function tick() {
 					(moduleVitals[i].y - moonBody.position.y / SCALE)))
 			var G = .05;
 
-			var strength = G * (earthBody.mass * modules[i].mass) / (distance * distance);
+			var strength = G * (4895.829560036 * modules[i].mass) / (distance * distance);
       			var strength2 = G * (moonBody.mass * modules[i].mass) / (distance2 * distance2);
 
 			var force = {
@@ -257,7 +305,7 @@ function tick() {
 			var G = .05;
 		   	var G2 = 0.1;
 
-			var strength = G * (earthBody.mass * players[key].mass) / (distance * distance);
+			var strength = G * (4895.829560036 * players[key].mass) / (distance * distance);
 			var strength2 = G * (moonBody.mass * players[key].mass) / (distance2 * distance2);
 
 			var force = {

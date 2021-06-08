@@ -42,6 +42,7 @@ var player = {
 };
 
 var keys = {};
+var buttons = {};
 var mousePos = {};
 var usernames = {};
 var planets = {};
@@ -160,7 +161,7 @@ function draw() {
 
 		for(var key of Object.keys(players)) {
 			ctx.save();
-			ctx.translate(players[key].x, players[key].y);
+			ctx.translate(players[key].x + players[key].velX, players[key].y + players[key].velY);
 
 			ctx.textAlign = "center";
 			ctx.font = '30px Segoe UI';
@@ -174,13 +175,13 @@ function draw() {
 
 		for(let i = 0; i < modules.length; i++) {
 			ctx.save();
-			ctx.translate(modules[i].x, modules[i].y)
+			ctx.translate(modules[i].x + modules[i].velocity.x, modules[i].y + modules[i].velocity.y);
 			ctx.rotate(modules[i].rotation);
 			ctx.drawImage(cargo, -25, -25, 50, 50) 
 			ctx.restore();
 		}
 
-		socket.emit("input", keys, mousePos);
+		socket.emit("input", keys, mousePos, buttons);
 	}, 1000/60);
 }
 
@@ -199,4 +200,10 @@ document.addEventListener('mousemove', (event) => {
         x: event.clientX - (canvas.width / 2),
         y: event.clientY - (canvas.height / 2),
     }
+});
+document.addEventListener('mousedown', e => {
+    buttons = e.buttons;
+});
+document.addEventListener('mouseup', e => {
+    buttons = e.buttons;
 });
