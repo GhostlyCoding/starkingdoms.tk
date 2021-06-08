@@ -18,6 +18,7 @@
     <div id="home" class="box">
         <div id="logo" class="centered boxChild object"></div>
         <form id="entry" class="object" action="/main.html">
+            <input type="hidden" id="state" name="state" class="centered" />
             <label for="uname" id="unamelbl" class="centered">Username:</label><br>
             <input type="text" id="uname" class="centered boxChild" name="username" placeholder="Unnamed"><br><br>
             <input type="submit" id="playbtn" class="centered boxChild" value="Play">
@@ -29,7 +30,12 @@
         <a href="https://starkingdoms.tk/auth/get_token.php"><i class="fab fa-discord" id="discLink"></i>Log in with Discord</a>
     </div>
 
-    
+    <script>
+        var params = new URL(window.location.href).searchParams;
+        if (params.has("state")) {
+            document.getElementById("state").value = params.get("state");
+        }
+    </script>
 </body>
 <link href="https://cdn.jsdelivr.net/gh/hung1001/font-awesome-pro@0ac23ca/css/all.css" rel="stylesheet" type="text/css" />
 </html>

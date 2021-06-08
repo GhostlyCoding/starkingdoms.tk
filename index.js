@@ -1,9 +1,15 @@
 const Matter = require('matter-js');
 const logging = require("./logging.js");
 
+logging.setup(true); // enable debug logging
+
+logging.info("Welcome to StarKingdoms!");
+logging.debug("Creating io()");
 const core_server_util = require("./core_server_util.js");
 
 let io = core_server_util.get_io(); // automatically determine dev mode or not
+
+logging.debug("io function setup");
 
 var Engine = Matter.Engine;
 var Runner = Matter.Runner;
@@ -22,6 +28,8 @@ const SCALE = 30;
 var engine = Engine.create({
 	gravity: {x: 0, y: 0}
 });
+
+logging.info("Engine created");
 
 let earthPos = {
 	x: 0,
@@ -59,8 +67,9 @@ var moonBody = Bodies.circle(
 
 
 Composite.add(engine.world, [earthBody, moonBody]);
-
+logging.info("Created planets");
 var runner = Runner.create();
+logging.debug("Runner created");
 
 function wkey(socket) {
 	var force = { x: 0, y: -.001 };
@@ -92,9 +101,10 @@ function dkey(socket) {
 	Matter.Body.setAngularVelocity(players[socket.id], players[socket.id].angularVelocity + .0025);
 }
 
+logging.info("Server setup.");
 
 io.sockets.on('connection', (socket) => {
-	console.log('Someone connected');
+	logging.info("Player connected");
 
 	var boxBody = Bodies.rectangle(1500, 100, 50, 50, {
 		friction: .001,
@@ -102,16 +112,21 @@ io.sockets.on('connection', (socket) => {
 		frictionAir: 0,
 	});
 
+	logging.debug("Created body");
+
 	Composite.add(engine.world, [boxBody]);
 	players[socket.id] = boxBody;
-	
-	socket.on('join', (username) => {
+
+	logging.debug("Body added to world");
+
+	socket.on('join', (username, state) => {
 		usernames[socket.id] = username;
-		io.emit('message', username + " joined the game", "Server")
+		io.emit('message', username + " joined the game", "Server");
+		logging.info(`Player ${username} joined with state ${state}`);
 	});
 
 	socket.on('disconnect', () => {
-		console.log('Someone disconnected');
+		logging.info(`Player ${usernames[socket.id]} disconnected`);
 		io.emit('message', usernames[socket.id] + " left the game", "Server");
 
 		Composite.remove(engine.world, [players[socket.id]]);
@@ -121,6 +136,7 @@ io.sockets.on('connection', (socket) => {
 	});
 
 	socket.on('message', (text, username) => {
+		logging.info(`Broadcasted message ${text} from ${username}`);
 		io.emit('message', text, username);
 	});
 
@@ -253,9 +269,7 @@ function tick() {
             
 			Matter.Body.applyForce(players[key], players[key].position, {x: force.x + force2.x, y: force.y + force2.y});
 
-			for(let key1 of Object.keys(playerVitals)){
-					io.to(key).emit('client-pos', playerVitals[key1], playerVitals[key], usernames);
-			}
+			io.to(key).emit('client-pos', playerVitals, playerVitals[key], usernames);
 
 			io.to(key).emit('planet-pos', planets);
 			io.to(key).emit('module-pos', moduleVitals);
@@ -264,7 +278,6 @@ function tick() {
 	}, 1000 / 60);
 
 	var intervalId2 = setInterval(() => {
-		console.log(modules.length);
 		if(modules.length < 30) {
 			var location = {
 				x: Math.random() * 2 - 1,

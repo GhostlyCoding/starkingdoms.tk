@@ -1,21 +1,27 @@
 var canvas = document.getElementById("canvas");
 var ctx = canvas.getContext('2d');
 
-function getParameterByName( name ){
-	name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
-	var regexS = "[\\?&]"+name+"=([^&#]*)";
-	var regex = new RegExp(regexS);
-	var results = regex.exec(window.location.href);
-	if(results == null) {
-		return "";
-	} else {
-		return decodeURIComponent(results[1].replace(/\+/g, " "));
-	}
-}
-
 console.log("%cWelcome to StarKingdoms! Version: v0.3.1.1", "color:blue");
 
-var username = getParameterByName('username');
+var params = new URL(window.location.href).searchParams;
+var username = "Unnamed";
+if (params.has("username")) {
+	username = params.get("username");
+}
+if(username == undefined || username == "" || username == " ") {
+	console.log("%cUsername rejected. Setting to Unnamed.", "color: red");
+	username = "Unnamed";
+}
+console.log(`%cPreparing to log in as ${username}`, "color: green");
+var state = "";
+if (params.has("state")) {
+	if (params.get("state") == "") {
+		console.log("%cNo state found.", "color: red");
+	} else {
+		console.log(`%cFound state ${state}`, "color: green");
+		state = params.get("state");
+	}
+}
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -26,11 +32,14 @@ window.onresize = function() {
 }
 
 if(username == undefined || username == "" || username == " ") {
+	console.log("%cUsername rejected. Setting to Unnamed.");
 	username = "Unnamed";
 }
 
 var socket = io("http://localhost:8443");
-socket.emit("join", username);
+socket.emit("join", username, state);
+
+console.log("%cConnected!", "color: green");
 
 var players = {};
 var player = {
