@@ -23,6 +23,7 @@ tick();
 
 const SCALE = 30;
 
+// create the engine, it has the world
 var engine = Engine.create({
 	gravity: {x: 0, y: 0}
 });
@@ -32,6 +33,7 @@ let earthPos = {
 	y: 0
 }
 
+// make the earth
 var earthBody = Bodies.circle(
 	earthPos.x,
 	earthPos.y,
@@ -43,6 +45,7 @@ var earthBody = Bodies.circle(
 );
 console.log(earthBody.mass)
 
+// find moon location
 let moonDistance = 5000;
 var moonLocation = {
     x: Math.random() * 2 - 1,
@@ -56,6 +59,7 @@ moonLocation.y /= magnitude;
 moonLocation.x *= moonDistance;
 moonLocation.y *= moonDistance;
 
+// make moon
 var moonBody = Bodies.circle(
 	moonLocation.x,
 	moonLocation.y,
@@ -63,11 +67,12 @@ var moonBody = Bodies.circle(
 	{}
 );
 
-
+// add moon and earth to the world
 Composite.add(engine.world, [earthBody, moonBody]);
 
 var runner = Runner.create();
 
+// input
 function wkey(socket) {
 	var force = { x: 0, y: -.001 };
 	force = Matter.Vector.rotate(force, players[socket.id].angle);
@@ -101,15 +106,18 @@ function dkey(socket) {
 
 io.sockets.on('connection', (socket) => {
 	console.log('Someone connected');
-
+    
+    // make player upon join
 	var boxBody = Bodies.rectangle(1500, 100, 50, 50, {
 		friction: .001,
 		restitution: 0.2,
 		frictionAir: 0,
 	});
 
+    // add player to the world
 	Composite.add(engine.world, [boxBody]);
 	players[socket.id] = boxBody;
+    // make the mouse body as a sensor with no collision
     mouses[socket.id] = Bodies.circle(0, 0, 1, {
         isSensor: true,
         density: .0001
@@ -117,11 +125,13 @@ io.sockets.on('connection', (socket) => {
     mouses[socket.id].constraint = null;
     Composite.add(engine.world, mouses[socket.id]);
 	
+    // join message
 	socket.on('join', (username) => {
 		usernames[socket.id] = username;
 		io.emit('message', username + " joined the game", "Server")
 	});
 
+    // handle disconnection
 	socket.on('disconnect', () => {
 		console.log('Someone disconnected');
 		io.emit('message', usernames[socket.id] + " left the game", "Server");
@@ -132,10 +142,12 @@ io.sockets.on('connection', (socket) => {
 		delete usernames[socket.id]
 	});
 
+    // messages
 	socket.on('message', (text, username) => {
 		io.emit('message', text, username);
 	});
 
+    // recieving inputs
 	socket.on('input', (keys, mousePos, mouseButtons) => {
 		if (keys.s) {
 			skey(socket);
@@ -149,6 +161,7 @@ io.sockets.on('connection', (socket) => {
 		if (keys.d) {
 			dkey(socket);
 		}
+        // set mouse body to world space mouse x and mouse y
         Matter.Body.setPosition(mouses[socket.id], { x: mousePos.x + players[socket.id].position.x, y: mousePos.y + players[socket.id].position.y })
         buttons[socket.id] = mouseButtons;
 	});
@@ -157,18 +170,22 @@ io.sockets.on('connection', (socket) => {
 var planets = {};
 var moduleVitals = [];
 
+// module movements
 Events.on(engine, 'collisionActive', (event) => {
     var pairs = event.pairs;
 
+    // loop through pairs
     for(var i = 0, j = pairs.length; i != j; ++i) {
         var pair = pairs[i];
         
+        // check for clicking
         for(let key of Object.keys(mouses)) {
             if(pair.bodyA === mouses[key]) {
                 if(pair.bodyB != players[key]) {
                     if(buttons[key] == 1) {
                         if(mouses[key].constraint == null){
                             console.log("constraint");
+                            // make mouse constraint to module
                             mouses[key].constraint = Constraint.create({
                                 bodyA: mouses[key],
                                 bodyB: pair.bodyB,
@@ -202,6 +219,7 @@ Events.on(engine, 'collisionActive', (event) => {
 
 function tick() {
 	const intervalId = setInterval(() => {
+        // tick the engine and fix earth and moon positions
 		Engine.update(engine, 1000/60);
 		Matter.Body.setPosition(earthBody, earthPos);
 		Matter.Body.setPosition(moonBody, moonLocation);
@@ -214,17 +232,22 @@ function tick() {
 				velX: players[key].velocity.x,
 				velY: players[key].velocity.y,
 			};
+            // remove constraints if mouse button is lifted
             if (buttons[key] == 0 && mouses[key].constraint != null) {
+                // set velocities to 0
                 Matter.Body.setVelocity(mouses[key].constraint.bodyB, {x: 0, y: 0});
                 Matter.Body.setVelocity(mouses[key].constraint.bodyA, {x: 0, y: 0});
+                // reset density
                 if(mouses[key].constraint.bodyB == mouses[key]) {
                     Matter.Body.setDensity(mouses[key].constraint.bodyB, 0.001);
                 } else {
                     Matter.Body.setDensity(mouses[key].constraint.bodyA, 0.001);
                 }
+                // remove constraint
                 Composite.remove(engine.world, mouses[key].constraint);
                 mouses[key].constraint = null;
             }
+            // 0 velocities
             if (buttons[key] == 1 && mouses[key].constraint != null) {
                 Matter.Body.setVelocity(mouses[key].constraint.bodyB, {x: 0, y: 0});
                 Matter.Body.setVelocity(mouses[key].constraint.bodyA, {x: 0, y: 0});
@@ -256,9 +279,11 @@ function tick() {
 					(moduleVitals[i].y - moonBody.position.y / SCALE)))
 			var G = .05;
 
+            // calculate strength values
 			var strength = G * (4895.829560036 * modules[i].mass) / (distance * distance);
       			var strength2 = G * (moonBody.mass * modules[i].mass) / (distance2 * distance2);
 
+            // get the direction
 			var force = {
 				x: (earthBody.position.x) - moduleVitals[i].x,
 				y: (earthBody.position.y) - moduleVitals[i].y,
@@ -269,6 +294,7 @@ function tick() {
 				y:  (moonBody.position.y) - moduleVitals[i].y,
 			};
 
+            // set the magnitude of the direction to strength
 			force.x /= distance;
 			force.y /= distance;
 			force.x *= strength;
@@ -278,6 +304,7 @@ function tick() {
 			force2.y /= distance2;
 			force2.x *= strength2;
 			force2.y *= strength2;
+            // apply gravity force
 			Matter.Body.applyForce(modules[i], Matter.Vector.create(moduleVitals[i].x, moduleVitals[i].y), Matter.Vector.create(force.x + force2.x, force.y + force2.y));
 		}
 
@@ -294,6 +321,7 @@ function tick() {
 		}
 
 		for (let key of Object.keys(playerVitals)) {
+            // calculate distance
 			var distance = Math.sqrt(
 				((playerVitals[key].x - earthBody.position.x) * (playerVitals[key].x - earthBody.position.x)) +
 				((playerVitals[key].y - earthBody.position.y) * (playerVitals[key].y - earthBody.position.y)));
@@ -305,6 +333,7 @@ function tick() {
 			var G = .05;
 		   	var G2 = 0.1;
 
+            // refer back to module gravity
 			var strength = G * (4895.829560036 * players[key].mass) / (distance * distance);
 			var strength2 = G * (moonBody.mass * players[key].mass) / (distance2 * distance2);
 
@@ -338,8 +367,10 @@ function tick() {
 
 	}, 1000 / 60);
 
+    // spawn modules
 	var intervalId2 = setInterval(() => {
 		console.log(modules.length);
+        // find module position
 		if(modules.length < 30) {
 			var location = {
 				x: Math.random() * 2 - 1,
@@ -353,6 +384,7 @@ function tick() {
 			location.x *= 1500;
 			location.y *= 1500;
 
+            // make and add modules to the world
 			var moduleBody = Bodies.rectangle(location.x, location.y, 50, 50);
 
 			Composite.add(engine.world, moduleBody);
