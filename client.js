@@ -28,9 +28,13 @@ window.onresize = function() {
 if(username == undefined || username == "" || username == " ") {
 	username = "Unnamed";
 }
+var mousePos = {
+    x: 0,
+    y: 0
+};
 
 var socket = io("localhost:8443");
-socket.emit("join", username);
+socket.emit("join", username, mousePos);
 
 var players = {};
 var player = {
@@ -43,7 +47,6 @@ var player = {
 
 var keys = {};
 var buttons = {};
-var mousePos = {};
 var usernames = {};
 var planets = {};
 var modules = [];

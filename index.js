@@ -12,6 +12,9 @@ var Engine = Matter.Engine,
     Constraint = Matter.Constraint,
     Events = Matter.Events;
 
+var planetCategory = 0x0001,
+    playerCategory = 0x0002;
+
 let players = {};
 let playerVitals = {};
 let usernames = {};
@@ -39,6 +42,9 @@ var earthBody = Bodies.circle(
 	earthPos.y,
 	1250,
 	{
+        collisionFilter: {
+            category: planetCategory
+        },
         friction: .0007,
         isStatic: true
 	}, 50
@@ -64,7 +70,11 @@ var moonBody = Bodies.circle(
 	moonLocation.x,
 	moonLocation.y,
 	300,
-	{}
+	{
+        collisionFilter: {
+            category: planetCategory
+        }
+    }
 );
 
 // add moon and earth to the world
@@ -112,15 +122,26 @@ io.sockets.on('connection', (socket) => {
 		friction: .001,
 		restitution: 0.2,
 		frictionAir: 0,
+        collisionFilter: {
+            category: playerCategory
+        }
 	});
+    var dragDetector = Bodies.circle(1500, 100, 35.355, {
+        isSensor: true
+    }); 
+    var constraint = Constraint.create({
+        bodyA: boxBody,
+        bodyB: dragDetector,
+    });
 
     // add player to the world
-	Composite.add(engine.world, [boxBody]);
+	Composite.add(engine.world, [boxBody, dragDetector, constraint]);
 	players[socket.id] = boxBody;
+    players[socket.id].constraint = constraint;
     // make the mouse body as a sensor with no collision
     mouses[socket.id] = Bodies.circle(0, 0, 1, {
         isSensor: true,
-        density: .0001
+        density: .00001
     });
     mouses[socket.id].constraint = null;
     Composite.add(engine.world, mouses[socket.id]);
@@ -136,8 +157,9 @@ io.sockets.on('connection', (socket) => {
 		console.log('Someone disconnected');
 		io.emit('message', usernames[socket.id] + " left the game", "Server");
 
-		Composite.remove(engine.world, [players[socket.id]]);
+		Composite.remove(engine.world, [players[socket.id], players[socket.id].constraint.bodyB, players[socket.id].constraint]);
 		delete players[socket.id]
+		delete mouses[socket.id]
 		delete playerVitals[socket.id]
 		delete usernames[socket.id]
 	});
@@ -169,6 +191,7 @@ io.sockets.on('connection', (socket) => {
 
 var planets = {};
 var moduleVitals = [];
+var moduleDraggingDensity = Math.pow(10, -10);
 
 // module movements
 Events.on(engine, 'collisionActive', (event) => {
@@ -189,10 +212,22 @@ Events.on(engine, 'collisionActive', (event) => {
                             mouses[key].constraint = Constraint.create({
                                 bodyA: mouses[key],
                                 bodyB: pair.bodyB,
-                                stiffness: .1
+                                stiffness: .005,
+                                damping: .01
                             });
-                            Matter.Body.setDensity(pair.bodyB, .00000001);
+                            Matter.Body.setDensity(pair.bodyB, moduleDraggingDensity);
+                            Matter.Body.setAngularVelocity(pair.bodyB, 0);
                             Composite.add(engine.world, mouses[key].constraint);
+                            pair.bodyB.collisionFilter.mask = planetCategory;
+                        }
+                        if(mouses[key].constraint != null){
+                            if(pair.bodyB == players[key].constraint.bodyB) {
+                                var position = {x: 0, y: 50};
+                                position = Matter.Vector.rotate(position, players[socket.id].angle);
+                                console.log("s");
+
+                                Matter.Body.setPosition(mouses[key].constraint.bodyA, { x: position.x + players[key].position.x, y: position.y + players[key].position.y });
+                            }
                         }
                     }
                 }
@@ -205,10 +240,22 @@ Events.on(engine, 'collisionActive', (event) => {
                             mouses[key].constraint = Constraint.create({
                                 bodyA: pair.bodyA,
                                 bodyB: mouses[key],
-                                stiffness: .1
+                                stiffness: .005,
+                                damping: .01
                             });
-                            Matter.Body.setDensity(pair.bodyA, .00000001);
+                            Matter.Body.setDensity(pair.bodyA, moduleDraggingDensity);
+                            Matter.Body.setAngularVelocity(pair.bodyA, 0);
                             Composite.add(engine.world, mouses[key].constraint);
+                            pair.bodyA.collisionFilter.mask = planetCategory;
+                        }
+                        if(mouses[key].constraint != null){
+                            if(pair.bodyB == players[key].constraint.bodyB) {
+                                var position = {x: 0, y: 50};
+                                position = Matter.Vector.rotate(position, players[socket.id].angle);
+                                console.log("s");
+
+                                Matter.Body.setPosition(mouses[key].constraint.bodyB, { x: position.x + players[key].position.x, y: position.y + players[key].position.y });
+                            }
                         }
                     }
                 }
@@ -237,11 +284,16 @@ function tick() {
                 // set velocities to 0
                 Matter.Body.setVelocity(mouses[key].constraint.bodyB, {x: 0, y: 0});
                 Matter.Body.setVelocity(mouses[key].constraint.bodyA, {x: 0, y: 0});
+                Matter.Body.setAngularVelocity(mouses[key].constraint.bodyB, 0);
+                Matter.Body.setAngularVelocity(mouses[key].constraint.bodyA, 0);
                 // reset density
-                if(mouses[key].constraint.bodyB == mouses[key]) {
+                if(mouses[key].constraint.bodyB.density == moduleDraggingDensity) {
                     Matter.Body.setDensity(mouses[key].constraint.bodyB, 0.001);
-                } else {
+                    mouses[key].constraint.bodyB.collisionFilter.mask = -1;
+                }
+                if(mouses[key].constraint.bodyA.density == moduleDraggingDensity) {
                     Matter.Body.setDensity(mouses[key].constraint.bodyA, 0.001);
+                    mouses[key].constraint.bodyA.collisionFilter.mask = -1;
                 }
                 // remove constraint
                 Composite.remove(engine.world, mouses[key].constraint);
