@@ -28,26 +28,26 @@ const SCALE = 30;
 
 // create the engine, it has the world
 var engine = Engine.create({
-	gravity: {x: 0, y: 0}
+    gravity: {x: 0, y: 0}
 });
 
 let earthPos = {
-	x: 0,
-	y: 0
+    x: 0,
+    y: 0
 }
 
 // make the earth
 var earthBody = Bodies.circle(
-	earthPos.x,
-	earthPos.y,
-	1250,
-	{
+    earthPos.x,
+    earthPos.y,
+    1250,
+    {
         collisionFilter: {
             category: planetCategory
         },
         friction: .0007,
         isStatic: true
-	}, 50
+    }, 50
 );
 console.log(earthBody.mass)
 
@@ -67,10 +67,10 @@ moonLocation.y *= moonDistance;
 
 // make moon
 var moonBody = Bodies.circle(
-	moonLocation.x,
-	moonLocation.y,
-	300,
-	{
+    moonLocation.x,
+    moonLocation.y,
+    300,
+    {
         collisionFilter: {
             category: planetCategory
         }
@@ -84,60 +84,62 @@ var runner = Runner.create();
 
 // input
 function wkey(socket) {
-	var force = { x: 0, y: -.001 };
-	force = Matter.Vector.rotate(force, players[socket.id].angle);
+    var force = { x: 0, y: -.001 };
+    force = Matter.Vector.rotate(force, players[socket.id].angle);
 
-	Matter.Body.applyForce(players[socket.id], players[socket.id].position, force);
+    Matter.Body.applyForce(players[socket.id], players[socket.id].position, force);
 }
 
 function skey(socket) {
-	var force = { x: 0, y: .001 };
-	force = Matter.Vector.rotate(force, players[socket.id].angle);
+    var force = { x: 0, y: .001 };
+    force = Matter.Vector.rotate(force, players[socket.id].angle);
 
-	Matter.Body.applyForce(players[socket.id], players[socket.id].position, force);
+    Matter.Body.applyForce(players[socket.id], players[socket.id].position, force);
 }
 
 function akey(socket) {
-	if (players[socket.id].angularVelocity < -0.21041200776958874) {
-		return;
-	}
+    if (players[socket.id].angularVelocity < -0.21041200776958874) {
+        return;
+    }
 
-	Matter.Body.setAngularVelocity(players[socket.id], players[socket.id].angularVelocity + -.0025);
+    Matter.Body.setAngularVelocity(players[socket.id], players[socket.id].angularVelocity + -.0025);
 }
 
 function dkey(socket) {
-	if (players[socket.id].angularVelocity > 0.21041200776958874) {
-		return;
-	}
+    if (players[socket.id].angularVelocity > 0.21041200776958874) {
+        return;
+    }
 
-	Matter.Body.setAngularVelocity(players[socket.id], players[socket.id].angularVelocity + .0025);
+    Matter.Body.setAngularVelocity(players[socket.id], players[socket.id].angularVelocity + .0025);
 }
 
 
 io.sockets.on('connection', (socket) => {
-	console.log('Someone connected');
-    
+    console.log('Someone connected');
+
     // make player upon join
-	var boxBody = Bodies.rectangle(1500, 100, 50, 50, {
-		friction: .001,
-		restitution: 0.2,
-		frictionAir: 0,
+    var boxBody = Bodies.rectangle(1500, 100, 50, 50, {
+        friction: .001,
+        restitution: 0.2,
+        frictionAir: 0,
         collisionFilter: {
             category: playerCategory
         }
-	});
-    var dragDetector = Bodies.circle(1500, 100, 35.355, {
+    });
+    var bottomMouseDetector = Bodies.rectangle(1500, 150, 50, 20, {
         isSensor: true
-    }); 
-    var constraint = Constraint.create({
+    });
+    var bottomConstraint = Constraint.create({
         bodyA: boxBody,
-        bodyB: dragDetector,
+        bodyB: bottomMouseDetector,
+        pointA: {x: 0, y: 20}
     });
 
     // add player to the world
-	Composite.add(engine.world, [boxBody, dragDetector, constraint]);
-	players[socket.id] = boxBody;
-    players[socket.id].constraint = constraint;
+    Composite.add(engine.world, [boxBody, bottomMouseDetector, bottomConstraint]);
+    players[socket.id] = boxBody;
+    players[socket.id].bottomModule = bottomMouseDetector;
+    players[socket.id].bottomConstraint = bottomConstraint;
     // make the mouse body as a sensor with no collision
     mouses[socket.id] = Bodies.circle(0, 0, 1, {
         isSensor: true,
@@ -145,48 +147,48 @@ io.sockets.on('connection', (socket) => {
     });
     mouses[socket.id].constraint = null;
     Composite.add(engine.world, mouses[socket.id]);
-	
+
     // join message
-	socket.on('join', (username) => {
-		usernames[socket.id] = username;
-		io.emit('message', username + " joined the game", "Server")
-	});
+    socket.on('join', (username) => {
+        usernames[socket.id] = username;
+        io.emit('message', username + " joined the game", "Server")
+    });
 
     // handle disconnection
-	socket.on('disconnect', () => {
-		console.log('Someone disconnected');
-		io.emit('message', usernames[socket.id] + " left the game", "Server");
+    socket.on('disconnect', () => {
+        console.log('Someone disconnected');
+        io.emit('message', usernames[socket.id] + " left the game", "Server");
 
-		Composite.remove(engine.world, [players[socket.id], players[socket.id].constraint.bodyB, players[socket.id].constraint]);
-		delete players[socket.id]
-		delete mouses[socket.id]
-		delete playerVitals[socket.id]
-		delete usernames[socket.id]
-	});
+        Composite.remove(engine.world, [players[socket.id], players[socket.id].constraint.bodyB, players[socket.id].constraint]);
+        delete players[socket.id]
+        delete mouses[socket.id]
+        delete playerVitals[socket.id]
+        delete usernames[socket.id]
+    });
 
     // messages
-	socket.on('message', (text, username) => {
-		io.emit('message', text, username);
-	});
+    socket.on('message', (text, username) => {
+        io.emit('message', text, username);
+    });
 
     // recieving inputs
-	socket.on('input', (keys, mousePos, mouseButtons) => {
-		if (keys.s) {
-			skey(socket);
-		}
-		if (keys.w) {
-			wkey(socket);
-		}
-		if (keys.a) {
-			akey(socket);
-		}
-		if (keys.d) {
-			dkey(socket);
-		}
+    socket.on('input', (keys, mousePos, mouseButtons) => {
+        if (keys.s) {
+            skey(socket);
+        }
+        if (keys.w) {
+            wkey(socket);
+        }
+        if (keys.a) {
+            akey(socket);
+        }
+        if (keys.d) {
+            dkey(socket);
+        }
         // set mouse body to world space mouse x and mouse y
         Matter.Body.setPosition(mouses[socket.id], { x: mousePos.x + players[socket.id].position.x, y: mousePos.y + players[socket.id].position.y })
         buttons[socket.id] = mouseButtons;
-	});
+    });
 });
 
 var planets = {};
@@ -200,7 +202,7 @@ Events.on(engine, 'collisionActive', (event) => {
     // loop through pairs
     for(var i = 0, j = pairs.length; i != j; ++i) {
         var pair = pairs[i];
-        
+
         // check for clicking
         for(let key of Object.keys(mouses)) {
             if(pair.bodyA === mouses[key]) {
@@ -220,18 +222,29 @@ Events.on(engine, 'collisionActive', (event) => {
                             Composite.add(engine.world, mouses[key].constraint);
                             pair.bodyB.collisionFilter.mask = planetCategory;
                         }
-                        if(mouses[key].constraint != null){
-                            if(pair.bodyB == players[key].constraint.bodyB) {
-                                var position = {x: 0, y: 50};
-                                position = Matter.Vector.rotate(position, players[socket.id].angle);
-                                console.log("s");
-
-                                Matter.Body.setPosition(mouses[key].constraint.bodyA, { x: position.x + players[key].position.x, y: position.y + players[key].position.y });
-                            }
-                        }
                     }
                 }
             }
+            /*if(mouses[key].constraint != null){
+                if(pair.bodyA == mouses[key].constraint.bodyA) {
+                    if(pair.bodyB == players[key].constraint.bodyB) {
+                        var position = {x: 0, y: 50};
+                        position = Matter.Vector.rotate(position, players[key].angle);
+                        console.log("s");
+
+                        Matter.Body.setPosition(mouses[key].constraint.bodyA, { x: position.x + players[key].position.x, y: position.y + players[key].position.y });
+                    }
+                }
+                if(pair.bodyB == mouses[key].constraint.bodyB) {
+                    if(pair.bodyA == players[key].constraint.bodyB) {
+                        var position = {x: 0, y: 50};
+                        position = Matter.Vector.rotate(position, players[key].angle);
+                        console.log("s");
+
+                        Matter.Body.setPosition(mouses[key].constraint.bodyB, { x: position.x + players[key].position.x, y: position.y + players[key].position.y });
+                    }
+                }
+            }*/
             if(pair.bodyB === mouses[key]) {
                 if(pair.bodyA != players[key] && pair.bodyA != earthBody) {
                     if(buttons[key] == 1) {
@@ -247,14 +260,14 @@ Events.on(engine, 'collisionActive', (event) => {
                             Matter.Body.setAngularVelocity(pair.bodyA, 0);
                             Composite.add(engine.world, mouses[key].constraint);
                             pair.bodyA.collisionFilter.mask = planetCategory;
-                        }
-                        if(mouses[key].constraint != null){
-                            if(pair.bodyB == players[key].constraint.bodyB) {
+                        } else {
+                            if(pair.bodyA == players[key].bottomModule){
                                 var position = {x: 0, y: 50};
-                                position = Matter.Vector.rotate(position, players[socket.id].angle);
+                                position = Matter.Vector.rotate(position, players[key].angle - 3 * Math.PI / 2);
                                 console.log("s");
 
                                 Matter.Body.setPosition(mouses[key].constraint.bodyB, { x: position.x + players[key].position.x, y: position.y + players[key].position.y });
+                                mouses[key].constraint.bodyB.angle = players[key].angle - Math.PI / 2;
                             }
                         }
                     }
@@ -265,20 +278,21 @@ Events.on(engine, 'collisionActive', (event) => {
 });
 
 function tick() {
-	const intervalId = setInterval(() => {
+    const intervalId = setInterval(() => {
         // tick the engine and fix earth and moon positions
-		Engine.update(engine, 1000/60);
-		Matter.Body.setPosition(earthBody, earthPos);
-		Matter.Body.setPosition(moonBody, moonLocation);
+        Engine.update(engine, 1000/60);
+        Matter.Body.setPosition(earthBody, earthPos);
+        Matter.Body.setPosition(moonBody, moonLocation);
 
-		for (let key of Object.keys(players)) {
-			playerVitals[key] = {
-				x: players[key].position.x,
-				y: players[key].position.y,
-				rotation: players[key].angle,
-				velX: players[key].velocity.x,
-				velY: players[key].velocity.y,
-			};
+        for (let key of Object.keys(players)) {
+            playerVitals[key] = {
+                x: players[key].position.x,
+                y: players[key].position.y,
+                rotation: players[key].angle,
+                velX: players[key].velocity.x,
+                velY: players[key].velocity.y,
+            };
+            players[key].bottomModule.angle = players[key].angle;
             // remove constraints if mouse button is lifted
             if (buttons[key] == 0 && mouses[key].constraint != null) {
                 // set velocities to 0
@@ -304,143 +318,191 @@ function tick() {
                 Matter.Body.setVelocity(mouses[key].constraint.bodyB, {x: 0, y: 0});
                 Matter.Body.setVelocity(mouses[key].constraint.bodyA, {x: 0, y: 0});
             }
-		}
+            /*if(mouses[key].constraint != null) {
+                var x1 = mouses[key].position.x;
+                var y1 = mouses[key].position.y;
+                var x2 = players[key].position.x;
+                var y2 = players[key].position.y;
+                var distance = Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+                if(distance < 35.355){
+                    var rVector = { x: x2 - x1, y: y2 - y1 };
+                    rVector = Matter.Vector.normalise(rVector);
+                    var actuallyRotatedVector = Matter.Vector.rotate(rVector, players[key].angle);
+                    var baseVector = Matter.Vector.rotate({ x: 1, y: 0 }, players[key].angle);
+                    var angle = Math.atan2(actuallyRotatedVector.y, actuallyRotatedVector.x);
+                    console.log(angle);
+                    
+                    if(angle > -3 * Math.PI / 4 && angle < -Math.PI / 4){
+                        var position = {x: 0, y: 50};
+                        position = Matter.Vector.rotate(position, players[key].angle - 3 * Math.PI / 2);
+                        console.log("s");
+
+                        Matter.Body.setPosition(mouses[key].constraint.bodyB, { x: position.x + players[key].position.x, y: position.y + players[key].position.y });
+                        mouses[key].constraint.bodyB.angle = players[key].angle - Math.PI / 2;
+                    }
+                    /*if(dot > -Math.sqrt(2) / 2 && dot < Math.sqrt(2) / 2 && actuallyRotatedVector.x < 0){
+                        var position = {x: 0, y: 50};
+                        position = Matter.Vector.rotate(position, players[key].angle);
+                        console.log("s");
+
+                        Matter.Body.setPosition(mouses[key].constraint.bodyB, { x: position.x + players[key].position.x, y: position.y + players[key].position.y });
+                        mouses[key].constraint.bodyB.angle = players[key].angle - Math.PI;
+                    }*/
+                    /*if(side == "top"){
+                        var position = {x: 0, y: 50};
+                        position = Matter.Vector.rotate(position, players[key].angle - Math.PI);
+                        console.log("s");
+
+                        Matter.Body.setPosition(mouses[key].constraint.bodyB, { x: position.x + players[key].position.x, y: position.y + players[key].position.y });
+                        mouses[key].constraint.bodyB.angle = players[key].angle - Math.PI / 2;
+                    }
+                    if(side == "left"){
+                        var position = {x: 0, y: 50};
+                        position = Matter.Vector.rotate(position, players[key].angle - Math.PI / 2);
+                        console.log("s");
+
+                        Matter.Body.setPosition(mouses[key].constraint.bodyB, { x: position.x + players[key].position.x, y: position.y + players[key].position.y });
+                        mouses[key].constraint.bodyB.angle = players[key].angle - Math.PI;
+                    }
+                }
+            }*/
+        }
 
         // module essentials creation
-		for(let i = 0;  i < modules.length; i++) {
-			moduleVitals[i] = {
-				x: modules[i].position.x,
-				y: modules[i].position.y,
-				rotation: modules[i].angle,
+        for(let i = 0;  i < modules.length; i++) {
+            moduleVitals[i] = {
+                x: modules[i].position.x,
+                y: modules[i].position.y,
+                rotation: modules[i].angle,
                 velocity: modules[i].velocity
-			};
+            };
         }
-        
-        // module gravity
-		for(let i = 0;  i < modules.length; i++) {
-			var distance = Math.sqrt(
-				((moduleVitals[i].x - earthBody.position.x / SCALE) *
-					(moduleVitals[i].x - earthBody.position.x / SCALE)) +
-				((moduleVitals[i].y - earthBody.position.y / SCALE) *
-					(moduleVitals[i].y - earthBody.position.y / SCALE)));
 
-      			var distance2 = Math.sqrt(
-				((moduleVitals[i].x - moonBody.position.x / SCALE) *
-					(moduleVitals[i].x - moonBody.position.x / SCALE)) +
-				((moduleVitals[i].y - moonBody.position.y / SCALE) *
-					(moduleVitals[i].y - moonBody.position.y / SCALE)))
-			var G = .05;
+        // module gravity
+        for(let i = 0;  i < modules.length; i++) {
+            var distance = Math.sqrt(
+                ((moduleVitals[i].x - earthBody.position.x / SCALE) *
+                    (moduleVitals[i].x - earthBody.position.x / SCALE)) +
+                ((moduleVitals[i].y - earthBody.position.y / SCALE) *
+                    (moduleVitals[i].y - earthBody.position.y / SCALE)));
+
+            var distance2 = Math.sqrt(
+                ((moduleVitals[i].x - moonBody.position.x / SCALE) *
+                    (moduleVitals[i].x - moonBody.position.x / SCALE)) +
+                ((moduleVitals[i].y - moonBody.position.y / SCALE) *
+                    (moduleVitals[i].y - moonBody.position.y / SCALE)))
+            var G = .05;
 
             // calculate strength values
-			var strength = G * (4895.829560036 * modules[i].mass) / (distance * distance);
-      			var strength2 = G * (moonBody.mass * modules[i].mass) / (distance2 * distance2);
+            var strength = G * (4895.829560036 * modules[i].mass) / (distance * distance);
+            var strength2 = G * (moonBody.mass * modules[i].mass) / (distance2 * distance2);
 
             // get the direction
-			var force = {
-				x: (earthBody.position.x) - moduleVitals[i].x,
-				y: (earthBody.position.y) - moduleVitals[i].y,
-			};
+            var force = {
+                x: (earthBody.position.x) - moduleVitals[i].x,
+                y: (earthBody.position.y) - moduleVitals[i].y,
+            };
 
-			var force2 = {
-				x:  (moonBody.position.x) - moduleVitals[i].x,
-				y:  (moonBody.position.y) - moduleVitals[i].y,
-			};
+            var force2 = {
+                x:  (moonBody.position.x) - moduleVitals[i].x,
+                y:  (moonBody.position.y) - moduleVitals[i].y,
+            };
 
             // set the magnitude of the direction to strength
-			force.x /= distance;
-			force.y /= distance;
-			force.x *= strength;
-			force.y *= strength;
+            force.x /= distance;
+            force.y /= distance;
+            force.x *= strength;
+            force.y *= strength;
 
-  		    	force2.x /= distance2;
-			force2.y /= distance2;
-			force2.x *= strength2;
-			force2.y *= strength2;
+            force2.x /= distance2;
+            force2.y /= distance2;
+            force2.x *= strength2;
+            force2.y *= strength2;
             // apply gravity force
-			Matter.Body.applyForce(modules[i], Matter.Vector.create(moduleVitals[i].x, moduleVitals[i].y), Matter.Vector.create(force.x + force2.x, force.y + force2.y));
-		}
+            Matter.Body.applyForce(modules[i], Matter.Vector.create(moduleVitals[i].x, moduleVitals[i].y), Matter.Vector.create(force.x + force2.x, force.y + force2.y));
+        }
 
-		planets = {
-			earth: {
-				x: earthBody.position.x,
-				y: earthBody.position.y
-			},
+        planets = {
+            earth: {
+                x: earthBody.position.x,
+                y: earthBody.position.y
+            },
 
-			moon: {
-				x: moonBody.position.x,
-				y: moonBody.position.y
-			}
-		}
+            moon: {
+                x: moonBody.position.x,
+                y: moonBody.position.y
+            }
+        }
 
-		for (let key of Object.keys(playerVitals)) {
+        for (let key of Object.keys(playerVitals)) {
             // calculate distance
-			var distance = Math.sqrt(
-				((playerVitals[key].x - earthBody.position.x) * (playerVitals[key].x - earthBody.position.x)) +
-				((playerVitals[key].y - earthBody.position.y) * (playerVitals[key].y - earthBody.position.y)));
+            var distance = Math.sqrt(
+                ((playerVitals[key].x - earthBody.position.x) * (playerVitals[key].x - earthBody.position.x)) +
+                ((playerVitals[key].y - earthBody.position.y) * (playerVitals[key].y - earthBody.position.y)));
 
-			var distance2 = Math.sqrt(
-				((playerVitals[key].x - moonBody.position.x) * (playerVitals[key].x - moonBody.position.x)) +
-				((playerVitals[key].y - moonBody.position.y) * (playerVitals[key].y - moonBody.position.y)));
+            var distance2 = Math.sqrt(
+                ((playerVitals[key].x - moonBody.position.x) * (playerVitals[key].x - moonBody.position.x)) +
+                ((playerVitals[key].y - moonBody.position.y) * (playerVitals[key].y - moonBody.position.y)));
 
-			var G = .05;
-		   	var G2 = 0.1;
+            var G = .05;
+            var G2 = 0.1;
 
             // refer back to module gravity
-			var strength = G * (4895.829560036 * players[key].mass) / (distance * distance);
-			var strength2 = G * (moonBody.mass * players[key].mass) / (distance2 * distance2);
+            var strength = G * (4895.829560036 * players[key].mass) / (distance * distance);
+            var strength2 = G * (moonBody.mass * players[key].mass) / (distance2 * distance2);
 
-			var force = {
-				x: earthBody.position.x - playerVitals[key].x,
-				y: earthBody.position.y - playerVitals[key].y
-			};
+            var force = {
+                x: earthBody.position.x - playerVitals[key].x,
+                y: earthBody.position.y - playerVitals[key].y
+            };
 
-			var force2 = {
-				x: moonBody.position.x - playerVitals[key].x,
-				y: moonBody.position.y - playerVitals[key].y
-			};
+            var force2 = {
+                x: moonBody.position.x - playerVitals[key].x,
+                y: moonBody.position.y - playerVitals[key].y
+            };
 
-			force.x /= distance;
-			force.y /= distance;
-			force.x *= strength;
-			force.y *= strength;
+            force.x /= distance;
+            force.y /= distance;
+            force.x *= strength;
+            force.y *= strength;
 
-			force2.x /= distance2;
-			force2.y /= distance2;
-			force2.x *= strength2;
-			force2.y *= strength2;
-            
-			Matter.Body.applyForce(players[key], players[key].position, {x: force.x + force2.x, y: force.y + force2.y});
+            force2.x /= distance2;
+            force2.y /= distance2;
+            force2.x *= strength2;
+            force2.y *= strength2;
+
+            Matter.Body.applyForce(players[key], players[key].position, {x: force.x + force2.x, y: force.y + force2.y});
 
             io.to(key).emit('client-pos', playerVitals, playerVitals[key], usernames);
 
-			io.to(key).emit('planet-pos', planets);
-			io.to(key).emit('module-pos', moduleVitals);
-		}
+            io.to(key).emit('planet-pos', planets);
+            io.to(key).emit('module-pos', moduleVitals);
+        }
 
-	}, 1000 / 60);
+    }, 1000 / 60);
 
     // spawn modules
-	var intervalId2 = setInterval(() => {
-		console.log(modules.length);
+    var intervalId2 = setInterval(() => {
+        console.log(modules.length);
         // find module position
-		if(modules.length < 30) {
-			var location = {
-				x: Math.random() * 2 - 1,
-				y: Math.random() * 2 - 1
-			}
+        if(modules.length < 30) {
+            var location = {
+                x: Math.random() * 2 - 1,
+                y: Math.random() * 2 - 1
+            }
 
-			var magnitude = Math.sqrt(location.x * location.x + location.y * location.y);
-			location.x /= magnitude;
-			location.y /= magnitude;
+            var magnitude = Math.sqrt(location.x * location.x + location.y * location.y);
+            location.x /= magnitude;
+            location.y /= magnitude;
 
-			location.x *= 1500;
-			location.y *= 1500;
+            location.x *= 1500;
+            location.y *= 1500;
 
             // make and add modules to the world
-			var moduleBody = Bodies.rectangle(location.x, location.y, 50, 50);
+            var moduleBody = Bodies.rectangle(location.x, location.y, 50, 50);
 
-			Composite.add(engine.world, moduleBody);
-			modules.push(moduleBody);
-		}
-	}, 2000);
+            Composite.add(engine.world, moduleBody);
+            modules.push(moduleBody);
+        }
+    }, 2000);
 }
